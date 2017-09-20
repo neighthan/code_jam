@@ -47,7 +47,7 @@ def read_input(year: str, problem_name: str, size: str, raw: bool=False, col_nam
     with open(input_file_name) as in_file:
         n_cases = int(in_file.readline())
         if raw:
-            return n_cases, map(lambda x: x.strip(), in_file.readlines())
+            return n_cases, list(map(lambda x: x.strip(), in_file.readlines()))
     
     inputs = pd.read_csv(input_file_name, sep=" ", skiprows=1, header=None, names=col_names)
     
@@ -56,6 +56,9 @@ def read_input(year: str, problem_name: str, size: str, raw: bool=False, col_nam
         print(inputs.head())
     
     return n_cases, inputs
+
+def write_raw_output(output: List[str], year: str, problem_name: str, size: str) -> None:
+    write_output(pd.DataFrame(output), lambda x: x, year, problem_name, size)
 
 
 def write_output(inputs: pd.DataFrame, solver: Callable, year: str, problem_name: str, size: str, expand_inputs: bool=False, verbose: bool=True) -> None:
@@ -82,9 +85,8 @@ def write_output(inputs: pd.DataFrame, solver: Callable, year: str, problem_name
     output.insert(1, 'number', output.index + 1)
     output.number = output.number.apply(lambda case_num: f"#{case_num}:")
     
-    if verbose:
-        print(output.head())
-        print(output.dtypes)
-    
-    output_file_name = f'data/{year}/{problem_name}_{size}.out'
-    output.to_csv(output_file_name, sep=" ", header=None, index=None, quoting=3) # 3 == csv.QUOTE_NONE
+    with open(f'data/{year}/{problem_name}_{size}.out', 'w') as f:
+        out_string = '\n'.join(map(lambda row: ' '.join(str(e) for e in row), output.values))
+        if verbose:
+            print(out_string[:300)
+        f.write(out_string)
