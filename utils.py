@@ -1,13 +1,19 @@
 import os
+import inspect
+from subprocess import run, PIPE
 import pandas as pd
 from typing import Optional, List, Tuple, Union, Callable
 
 
-def write_example_file(year: str, problem_name: str, example_text: str) -> None:
+def write_example_files(year: str, problem_name: str, ex_inputs: str, ex_outputs) -> None:
     """
-    Writes an example input file.
-    :param problem_name: name of the problem (name of the example file will be data/{year}/{problem_name}_ex.in)
-    :param example_text: text to write to the example file
+    Write example input and output files.
+
+    The name of the example files will be data/{year}/{problem_name}_ex.in (or .out)
+
+    :param problem_name: name of the problem
+    :param ex_inputs: text to write to the example input file
+    :param ex_outputs: text to write to the example output file
     """
 
     # ensure necessary data directories are present
@@ -21,15 +27,61 @@ def write_example_file(year: str, problem_name: str, example_text: str) -> None:
     except FileExistsError:
         pass    
 
-    outfile_name = f'data/{year}/{problem_name}_ex.in'
-    with open(outfile_name, 'w') as out_file:
-        out_file.write(example_text)
+    inputs_fname = f"data/{year}/{problem_name}_ex.in"
+    with open(inputs_fname, 'w') as f:
+        f.write(ex_inputs)
+
+    outputs_fname = f"data/{year}/{problem_name}_ex.out"
+    with open(outputs_fname, 'w') as f:
+        f.write(ex_outputs)
 
 
-def read_input(year: str, problem_name: str, size: str, raw: bool=False, col_names: Optional[List[str]]=None, verbose: bool=True)\
+def check_solution(year: str, problem_name: str) -> None:
+    """
+    Check whether solution.py works on the example inputs.
+
+    Throws an AssertionError if not.
+    """
+
+    with open(f'data/{year}/{problem_name}_ex.out') as f:
+        solution = f.read()
+
+    with open(f'data/{year}/{problem_name}_ex.in') as f:
+        inputs = f.read()
+
+    my_solution = run('python solution.py'.split(' '), input=inputs, encoding='ascii', stdout=PIPE).stdout
+    # there's a trailing newline in mine
+    assert my_solution[:-1] == solution, f"Expected\n{solution}\n\nbut found\n\n{my_solution}"
+
+
+def make_solution_file(funcs: List[Callable]) -> None:
+    with open('solution_template.py') as f:
+        template = f.read()
+
+    template = template.replace('{{funcs}}', '\n\n'.join(inspect.getsource(func) for func in funcs))
+    template = template.replace('{{solve_func}}', funcs[0].__name__)
+
+    with open('solution.py', 'w') as f:
+        f.write(template)
+
+
+def read_input(col_names: Optional[List[str]]=None) -> Tuple[int, pd.DataFrame]:
+    """Read from standard input."""
+
+    n_cases = int(input())
+    inputs = pd.DataFrame([input().split(' ') for _ in range(n_cases)], columns=col_names)
+
+    return n_cases, inputs
+
+
+def read_input_file(year: str, problem_name: str, size: str='ex', raw: bool=False, col_names: Optional[List[str]]=None)\
         -> Tuple[int, Union[List[str], pd.DataFrame]]:
     """
-    Reads in input from the file data/{year}/{problem_name}_{size}.in
+    Read in input from the file data/{year}/{problem_name}_{size}.in.
+
+    (in the new format for Code Jam, you'll prefer the read_input function because files are passed
+    as standard input instead of read by name from disk)
+
     It is assumed that the input file contains the number of cases on the first line and that all other lines 
     contain the same number of input data points with spaces delimiting columns.
     :param problem_name: name of the problem
@@ -48,20 +100,17 @@ def read_input(year: str, problem_name: str, size: str, raw: bool=False, col_nam
         n_cases = int(in_file.readline())
         if raw:
             return n_cases, list(map(lambda x: x.strip(), in_file.readlines()))
-    
+
     inputs = pd.read_csv(input_file_name, sep=" ", skiprows=1, header=None, names=col_names)
-    
-    if verbose:
-        print("# cases: {}".format(n_cases))
-        print(inputs.head())
-    
+
     return n_cases, inputs
 
-def write_raw_output(output: List[str], year: str, problem_name: str, size: str) -> None:
+
+def write_raw_output(output: List[str], year: str, problem_name: str, size: str='ex') -> None:
     write_output(pd.DataFrame(output), lambda x: x, year, problem_name, size)
 
 
-def write_output(inputs: pd.DataFrame, solver: Callable, year: str, problem_name: str, size: str, expand_inputs: bool=False, verbose: bool=True) -> None:
+def write_output(inputs: pd.DataFrame, solver: Callable, year: str, problem_name: str, size: str='ex', expand_inputs: bool=True, verbose: bool=True) -> None:
     """
     Applies solver row-wise to inputs and writes to disk a file with the returned solution for each case.
     The format of the solutions file is, for each row: Case #x: y, where x is the row number (1-indexed)
@@ -88,5 +137,5 @@ def write_output(inputs: pd.DataFrame, solver: Callable, year: str, problem_name
     with open(f'data/{year}/{problem_name}_{size}.out', 'w') as f:
         out_string = '\n'.join(map(lambda row: ' '.join(str(e) for e in row), output.values))
         if verbose:
-            print(out_string[:300)
+            print(out_string[:300])
         f.write(out_string)
