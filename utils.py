@@ -49,12 +49,14 @@ def check_solution(year: str, problem_name: str) -> None:
     with open(f'data/{year}/{problem_name}_ex.in') as f:
         inputs = f.read()
 
-    my_solution = run('python solution.py'.split(' '), input=inputs, encoding='ascii', stdout=PIPE).stdout
+    my_solution = run('python solution.py'.split(' '), input=inputs, encoding='ascii',
+                      stdout=PIPE, stderr=PIPE)
     # there's a trailing newline in mine
-    assert my_solution[:-1] == solution, f"Expected\n{solution}\n\nbut found\n\n{my_solution}"
+    assert my_solution.stdout[:-1] == solution,\
+        f"Expected\n{solution}\n\nbut found\n\n{my_solution.stdout[:-1]}\n\nError:\n{my_solution.stderr}"
 
 
-def make_solution_file(funcs: List[Callable], n_lines_per_case: int=1) -> None:
+def make_solution_file(funcs: List[Callable], n_lines_per_case: int=1, print_case: bool=True) -> None:
     with open('solution_template.py') as f:
         template = f.read()
 
@@ -62,6 +64,7 @@ def make_solution_file(funcs: List[Callable], n_lines_per_case: int=1) -> None:
                 .replace('{{funcs}}', '\n\n'.join(inspect.getsource(func) for func in funcs))
                 .replace('{{solve_func}}', funcs[0].__name__)
                 .replace('{{n_lines_per_case}}', str(n_lines_per_case))
+                .replace('{{print_case}}', str(print_case))
                )
 
     with open('solution.py', 'w') as f:
