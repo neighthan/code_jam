@@ -54,12 +54,15 @@ def check_solution(year: str, problem_name: str) -> None:
     assert my_solution[:-1] == solution, f"Expected\n{solution}\n\nbut found\n\n{my_solution}"
 
 
-def make_solution_file(funcs: List[Callable]) -> None:
+def make_solution_file(funcs: List[Callable], n_lines_per_case: int=1) -> None:
     with open('solution_template.py') as f:
         template = f.read()
 
-    template = template.replace('{{funcs}}', '\n\n'.join(inspect.getsource(func) for func in funcs))
-    template = template.replace('{{solve_func}}', funcs[0].__name__)
+    template = (template
+                .replace('{{funcs}}', '\n\n'.join(inspect.getsource(func) for func in funcs))
+                .replace('{{solve_func}}', funcs[0].__name__)
+                .replace('{{n_lines_per_case}}', str(n_lines_per_case))
+               )
 
     with open('solution.py', 'w') as f:
         f.write(template)
